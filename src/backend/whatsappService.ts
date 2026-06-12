@@ -72,7 +72,7 @@ export async function uploadTrainingScreenshots(files: Express.Multer.File[]) {
         `;
 
         const response = await ai.models.generateContent({
-            model: "gemini-3.5-flash",
+            model: "gemini-2.5-pro",
             contents: [
                ...parts,
                { text: promptText }
@@ -286,15 +286,17 @@ async function handleMessage(msg: any) {
      
      // Fetch recent messages for context
      const messages = await chat.fetchMessages({ limit: 20 });
+     const contact = await chat.getContact();
+     const contactName = contact.name || contact.pushname || "Them";
      
      // Use Gemini to generate a response
-     const genAIQuery = messages.map((m: any) => `[${m.fromMe ? 'Me' : 'Them'}]: ${m.body}`).join('\n');
+     const genAIQuery = messages.map((m: any) => `[${m.fromMe ? 'Me' : contactName}]: ${m.body}`).join('\n');
      
      const prompt = `
      ${trainingPrompt}
      
      CRITICAL CONTEXT RULES:
-     Analyze the "recent chat history" below. Pay close attention to how I ("Me") speak to "Them".
+     Analyze the "recent chat history" below. Pay close attention to how I ("Me") speak to "${contactName}".
      You must strictly match the relationship dynamic, tone, and formatting. 
      - If we talk like close friends, use slang, informal words, and matching emojis.
      - If it's a romantic partner, mirror the affectionate tone naturally.
@@ -304,7 +306,7 @@ async function handleMessage(msg: any) {
      Here is the recent chat history:
      ${genAIQuery}
      
-     Based on the conversation and your persona instructions, decide how to reply back to 'Them'.
+     Based on the conversation and your persona instructions, decide how to reply back to '${contactName}'.
      Humans often break their thoughts into multiple short messages instead of one long paragraph. 
      CRITICAL: Your response MUST be a valid JSON array of strings (e.g. ["first message", "second message"]). 
      Your response MUST be written in perfect, grammatically correct, and natural-sounding Sinhala language, unless the conversation context explicitly demands otherwise.
@@ -313,7 +315,7 @@ async function handleMessage(msg: any) {
 
      const ai = initGenAI();
      const response = await ai.models.generateContent({
-         model: "gemini-3.5-flash",
+         model: "gemini-2.5-pro",
          contents: [{ text: prompt }]
      });
 
@@ -342,10 +344,10 @@ async function handleMessage(msg: any) {
 
         for (const replyText of replyTexts) {
             // Humanized delay logic:
-            // reading delay (1 to 2.5s) + typing delay (35ms per character)
-            const readingDelay = Math.floor(Math.random() * 1000) + 500;
-            const typingDelay = replyText.length * 35; 
-            const totalDelay = Math.min(readingDelay + typingDelay, 10000); // Cap at 10 seconds per message
+            // reading delay (500ms) + typing delay (20ms per character)
+            const readingDelay = 500;
+            const typingDelay = replyText.length * 20; 
+            const totalDelay = Math.min(readingDelay + typingDelay, 4000); // Cap at 4 seconds per message
             
             // Try to show typing indicator
             try {
