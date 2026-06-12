@@ -285,11 +285,15 @@ GEMINI_API_KEY="your_api_key_here"
                          <h3 className="text-lg font-bold text-slate-900 mb-2">2. Deploying on AWS t3 (Ubuntu/Debian)</h3>
                          <p className="text-slate-600 mb-2">Connect to your EC2 instance via SSH, install Node.js and PM2, then start the server.</p>
                          <div className="bg-slate-900 rounded-lg p-4 font-mono text-sm inline-block w-full text-slate-300">
-<p className="text-emerald-400 mb-1"># 1. Clone repository and install dependencies</p>
+<p className="text-emerald-400 mb-1"># 1. Install System Dependencies for Puppeteer (Ubuntu)</p>
+sudo apt-get update && sudo apt-get install -y libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2t64<br/><br/>
+<p className="text-emerald-400 mb-1"># 2. Install Node dependencies</p>
 npm install<br/><br/>
-<p className="text-emerald-400 mb-1"># 2. Build the project</p>
+<p className="text-emerald-400 mb-1"># 3. Install Puppeteer Chrome binaries</p>
+npx puppeteer browsers install chrome<br/><br/>
+<p className="text-emerald-400 mb-1"># 4. Build the project</p>
 npm run build<br/><br/>
-<p className="text-emerald-400 mb-1"># 3. Start the process via PM2 to keep it running</p>
+<p className="text-emerald-400 mb-1"># 5. Start the process via PM2 to keep it running</p>
 npm install -g pm2<br/>
 pm2 start "NODE_ENV=production node dist/server.cjs" --name "mebot"<br/>
 pm2 startup<br/>
@@ -337,6 +341,9 @@ sudo systemctl enable cloudflared
                              <ul className="list-disc pl-5 text-red-700 text-sm space-y-1">
                                  <li>Make sure PM2 or the Node server is actually running: <code>pm2 status</code></li>
                                  <li>Check server logs for errors: <code>pm2 logs mebot</code></li>
+                                 <li>If you see <strong>Could not find Chrome</strong>, run: <code>npx puppeteer browsers install chrome</code> inside your project directory.</li>
+                                 <li>If you see <strong>error while loading shared libraries (like libatk-1.0.so.0)</strong>, run: <code>sudo apt-get install -y libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libgbm1 libasound2t64</code> on your server.</li>
+                                 <li>If you get <strong>GEMINI_API_KEY is missing</strong> even though the <code>.env</code> is created, run: <code>npm run build && pm2 restart mebot</code> to reload variables.</li>
                                  <li>If you see <strong>EACCES: permission denied</strong> on <code>uploads</code> or <code>.wwebjs_auth</code>, run: <code>sudo chown -R $USER:$USER /home/ubuntu/mebot</code> inside your project directory to fix permissions.</li>
                                  <li>Ensure Service URL in Cloudflare is set to exactly <code>localhost:3000</code> (Not HTTPS).</li>
                                  <li>Ensure the port is correct. By default, this app runs on port 3000.</li>
