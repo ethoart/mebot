@@ -62,18 +62,83 @@ export default function App() {
     pollStatus();
   };
 
+  const compressImage = (file: File): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return reject("Canvas not supported");
+
+          // Target max width/height to compress
+          const MAX_SIZE = 1000;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_SIZE) {
+              height *= MAX_SIZE / width;
+              width = MAX_SIZE;
+            }
+          } else {
+            if (height > MAX_SIZE) {
+              width *= MAX_SIZE / height;
+              height = MAX_SIZE;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob(
+            (blob) => {
+              if (blob) resolve(blob);
+              else reject("Canvas toBlob failed");
+            },
+            "image/jpeg",
+            0.7
+          );
+        };
+        img.onerror = () => reject("Image load failed");
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => reject("File read failed");
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleUpload = async () => {
     if (files.length === 0) return;
     setIsUploading(true);
     const formData = new FormData();
-    files.forEach(f => formData.append("screenshots", f));
-
+    
     try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.type.startsWith("image/")) {
+           const compressedBlob = await compressImage(file);
+           formData.append("screenshots", compressedBlob, file.name);
+        } else {
+           formData.append("screenshots", file);
+        }
+      }
+
        const res = await fetch("/api/whatsapp/train", {
           method: "POST",
           body: formData
        });
-       const data = await res.json();
+       
+       const text = await res.text();
+       let data;
+       try {
+           data = JSON.parse(text);
+       } catch (e) {
+           console.error("Invalid response from server:", text);
+           throw new Error(res.status === 413 ? "Files too large to upload! Try smaller screenshots." : "Server error: " + text.substring(0, 50));
+       }
+
        if (data.success) {
           setTrainingPrompt(data.prompt);
           setFiles([]);

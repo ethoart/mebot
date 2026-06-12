@@ -285,13 +285,21 @@ async function handleMessage(msg: any) {
      console.log(`Bot handling message from ${msg.from}: ${msg.body}`);
      
      // Fetch recent messages for context
-     const messages = await chat.fetchMessages({ limit: 10 });
+     const messages = await chat.fetchMessages({ limit: 20 });
      
      // Use Gemini to generate a response
      const genAIQuery = messages.map((m: any) => `[${m.fromMe ? 'Me' : 'Them'}]: ${m.body}`).join('\n');
      
      const prompt = `
      ${trainingPrompt}
+     
+     CRITICAL CONTEXT RULES:
+     Analyze the "recent chat history" below. Pay close attention to how I ("Me") speak to "Them".
+     You must strictly match the relationship dynamic, tone, and formatting. 
+     - If we talk like close friends, use slang, informal words, and matching emojis.
+     - If it's a romantic partner, mirror the affectionate tone naturally.
+     - If it's professional, keep it polite and formal.
+     - Notice if I usually give short 1-word answers or longer paragraphs, and copy that style.
      
      Here is the recent chat history:
      ${genAIQuery}
