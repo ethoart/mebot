@@ -148,13 +148,16 @@ export function toggleSchedule(id: string, enabled: boolean) {
 setInterval(async () => {
    if (!client || connectionState !== "connected") return;
    
+   // Use Sri Lanka timezone if no TZ set, but better yet get timezone from the system
+   const tz = process.env.TZ || 'Asia/Colombo';
    const now = new Date();
-   // Pad components to handle locale edge cases safely
-   const y = now.getFullYear();
-   const m = String(now.getMonth() + 1).padStart(2, '0');
-   const d = String(now.getDate()).padStart(2, '0');
-   const dateStr = `${y}-${m}-${d}`;
-   const timeStr = now.toTimeString().slice(0, 5); // "HH:mm"
+   const timeStr = new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz
+   }).format(now);
+   
+   const dateStr = new Intl.DateTimeFormat('en-CA', {
+      year: 'numeric', month: '2-digit', day: '2-digit', timeZone: tz
+   }).format(now);
 
    for (const s of schedules) {
       if (!s.enabled) continue;
@@ -252,6 +255,8 @@ export async function startWhatsAppClient() {
   }
 }
 
+const pendingChatReplies: Record<string, NodeJS.Timeout> = {};
+
 async function handleMessage(msg: any) {
   try {
      // If the message is from me (human using WhatsApp normally), register activity and ignore.
@@ -282,7 +287,25 @@ async function handleMessage(msg: any) {
          return;
      }
 
-     console.log(`Bot handling message from ${msg.from}: ${msg.body}`);
+     console.log(`Received message from ${msg.from}, waiting before replying...`);
+     
+     if (pendingChatReplies[msg.from]) {
+         clearTimeout(pendingChatReplies[msg.from]);
+     }
+
+     pendingChatReplies[msg.from] = setTimeout(() => {
+         delete pendingChatReplies[msg.from];
+         processChatReply(chat, msg.from).catch(console.error);
+     }, 5000); // 5 second delay to gather quick consecutive messages
+
+  } catch (err) {
+      console.error("Error setting up chat reply", err);
+  }
+}
+
+async function processChatReply(chat: any, contactId: string) {
+  try {
+     console.log(`Bot handling batch messages for ${contactId}`);
      
      // Fetch recent messages for context
      const messages = await chat.fetchMessages({ limit: 20 });
@@ -308,8 +331,11 @@ async function handleMessage(msg: any) {
      
      Based on the conversation and your persona instructions, decide how to reply back to '${contactName}'.
      Humans often break their thoughts into multiple short messages instead of one long paragraph. 
-     CRITICAL: Your response MUST be a valid JSON array of strings (e.g. ["first message", "second message"]). 
-     Your response MUST be written in perfect, grammatically correct, and natural-sounding Sinhala language, unless the conversation context explicitly demands otherwise.
+     CRITICAL INSTRUCTIONS:
+     1. DO NOT repeat yourself. If you already asked a question, do not ask it again.
+     2. DO NOT answer exactly the same way if they send multiple fast messages. Read the full context before replying.
+     3. Your response MUST be a valid JSON array of strings (e.g. ["first message", "second message"]). 
+     4. Your response MUST be written in perfect, grammatically correct, and natural-sounding Sinhala language, unless the conversation context explicitly demands otherwise.
      Do not include prefixes like "Me:". Just the raw messages inside the JSON array. Only output the JSON array, no markdown blocks.
      `;
 
@@ -344,20 +370,23 @@ async function handleMessage(msg: any) {
 
         for (const replyText of replyTexts) {
             // Humanized delay logic:
-            // reading delay (500ms) + typing delay (20ms per character)
-            const readingDelay = 500;
-            const typingDelay = replyText.length * 20; 
-            const totalDelay = Math.min(readingDelay + typingDelay, 4000); // Cap at 4 seconds per message
+            // reading delay (1.5s to 3s base) + typing delay (50ms per character)
+            const readingDelay = Math.floor(Math.random() * 1500) + 1500;
+            const typingDelay = replyText.length * 50; 
+            const totalDelay = Math.min(readingDelay + typingDelay, 10000); // Cap at 10 seconds per message
             
-            // Try to show typing indicator
+            // Wait for reading delay before starting to type
+            await new Promise(resolve => setTimeout(resolve, readingDelay));
+
+            // Try to show typing indicator during typing delay
             try {
                 if (chat.sendStateTyping) await chat.sendStateTyping();
             } catch (e) {
                 // ignore if unsupported
             }
             
-            // Wait simulating human delay
-            await new Promise(resolve => setTimeout(resolve, totalDelay));
+            // Wait simulating human typing
+            await new Promise(resolve => setTimeout(resolve, typingDelay));
             
             // Try to clear typing indicator
             try {
