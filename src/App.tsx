@@ -10,7 +10,7 @@ type BotStatus = {
 };
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'connection' | 'training' | 'scheduler'>('connection');
+  const [activeTab, setActiveTab] = useState<'connection' | 'training' | 'scheduler' | 'deployment'>('connection');
   const [status, setStatus] = useState<BotStatus>({
     state: "disconnected",
     qrUpdate: null,
@@ -119,6 +119,13 @@ export default function App() {
                 >
                    <CalendarClock size={18} />
                    Scheduler
+                </button>
+                <button 
+                  onClick={() => setActiveTab('deployment')}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'deployment' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                >
+                   <Settings size={18} />
+                   Hosting & Config
                 </button>
              </nav>
 
@@ -259,6 +266,71 @@ export default function App() {
 
              {activeTab === 'scheduler' && (
                 <Scheduler status={status} />
+             )}
+
+             {activeTab === 'deployment' && (
+                <div className="max-w-4xl">
+                   <h2 className="text-2xl font-bold mb-6">Hosting & Setup Guide</h2>
+                   <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm space-y-6 text-slate-800">
+                      
+                      <div>
+                         <h3 className="text-lg font-bold text-slate-900 mb-2">1. Environment Variables (.env)</h3>
+                         <p className="mb-3 text-slate-600">The <code>.env.example</code> file is located at the root of the project directory. Create a new file named <code>.env</code> in the same location with the following contents:</p>
+                         <div className="bg-slate-900 rounded-lg p-4 font-mono text-sm text-emerald-400">
+GEMINI_API_KEY="your_api_key_here"
+                         </div>
+                      </div>
+
+                      <div>
+                         <h3 className="text-lg font-bold text-slate-900 mb-2">2. Deploying on AWS t3 (Ubuntu/Debian)</h3>
+                         <p className="text-slate-600 mb-2">Connect to your EC2 instance via SSH, install Node.js and PM2, then start the server.</p>
+                         <div className="bg-slate-900 rounded-lg p-4 font-mono text-sm inline-block w-full text-slate-300">
+<p className="text-emerald-400 mb-1"># 1. Clone repository and install dependencies</p>
+npm install<br/><br/>
+<p className="text-emerald-400 mb-1"># 2. Build the project</p>
+npm run build<br/><br/>
+<p className="text-emerald-400 mb-1"># 3. Start the process via PM2 to keep it running</p>
+npm install -g pm2<br/>
+pm2 start npm --name "mebot" -- start<br/>
+pm2 startup<br/>
+pm2 save
+                         </div>
+                      </div>
+
+                      <div>
+                         <h3 className="text-lg font-bold text-slate-900 mb-2">3. Expose to Domain using Cloudflare Tunnel</h3>
+                         <p className="text-slate-600 mb-2">To securely expose your local bot dashboard (Port 3000) to the internet without opening any AWS Security Group inbound ports:</p>
+                         <ul className="list-decimal pl-5 text-slate-600 space-y-2 mb-4">
+                             <li>Login to <a href="https://one.dash.cloudflare.com/" className="text-emerald-600 hover:underline" target="_blank" rel="noreferrer">Cloudflare Zero Trust Dashboard</a></li>
+                             <li>Go to <strong>Networks {"->"} Tunnels</strong> and click <strong>Create a tunnel</strong></li>
+                             <li>Name the tunnel and copy the provided Token carefully.</li>
+                             <li>Run the following commands on your AWS t3 Ubuntu server to install the Cloudflare daemon.</li>
+                         </ul>
+                         
+                         <div className="bg-slate-900 rounded-lg p-4 font-mono text-sm inline-block w-full text-slate-300">
+<p className="text-emerald-400 mb-1"># 1. Download the latest cloudflared package</p>
+wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb<br/><br/>
+<p className="text-emerald-400 mb-1"># 2. Install the package</p>
+sudo dpkg -i cloudflared-linux-amd64.deb<br/><br/>
+<p className="text-emerald-400 mb-1"># 3. Install the service using your token (replaces YOUR_TOKEN)</p>
+sudo cloudflared service install YOUR_TOKEN<br/><br/>
+<p className="text-emerald-400 mb-1"># 4. Start the service</p>
+sudo systemctl start cloudflared<br/>
+sudo systemctl enable cloudflared
+                         </div>
+
+                         <div className="mt-4 text-slate-600">
+                             <p className="mb-2"><strong>Final Step:</strong> Back in the Cloudflare Dashboard, configure the Public Hostname:</p>
+                             <ul className="list-disc pl-5">
+                                 <li><strong>Subdomain/Domain:</strong> e.g. <code>bot.yourdomain.com</code></li>
+                                 <li><strong>Service Type:</strong> HTTP</li>
+                                 <li><strong>Service URL:</strong> <code>localhost:3000</code></li>
+                             </ul>
+                         </div>
+                      </div>
+
+                   </div>
+                </div>
              )}
           </div>
        </div>
