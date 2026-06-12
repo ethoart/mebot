@@ -72,7 +72,7 @@ export async function uploadTrainingScreenshots(files: Express.Multer.File[]) {
         `;
 
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-pro",
+            model: "gemini-3.5-flash",
             contents: [
                ...parts,
                { text: promptText }
@@ -315,7 +315,7 @@ async function handleMessage(msg: any) {
 
      const ai = initGenAI();
      const response = await ai.models.generateContent({
-         model: "gemini-2.5-pro",
+         model: "gemini-3.5-flash",
          contents: [{ text: prompt }]
      });
 
