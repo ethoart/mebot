@@ -291,7 +291,7 @@ npm install<br/><br/>
 npm run build<br/><br/>
 <p className="text-emerald-400 mb-1"># 3. Start the process via PM2 to keep it running</p>
 npm install -g pm2<br/>
-pm2 start npm --name "mebot" -- start<br/>
+pm2 start "NODE_ENV=production node dist/server.cjs" --name "mebot"<br/>
 pm2 startup<br/>
 pm2 save
                          </div>
@@ -325,6 +325,21 @@ sudo systemctl enable cloudflared
                                  <li><strong>Subdomain/Domain:</strong> e.g. <code>bot.yourdomain.com</code></li>
                                  <li><strong>Service Type:</strong> HTTP</li>
                                  <li><strong>Service URL:</strong> <code>localhost:3000</code></li>
+                             </ul>
+                         </div>
+
+                         <div className="mt-6 bg-red-50 rounded-xl p-4 border border-red-100">
+                             <h4 className="text-red-800 font-bold mb-2 flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                Troubleshooting 502 Bad Gateway
+                             </h4>
+                             <p className="text-red-700 text-sm mb-3">If you see a 502 error on your domain, it means Cloudflare can't reach your server on port 3000. Check the following:</p>
+                             <ul className="list-disc pl-5 text-red-700 text-sm space-y-1">
+                                 <li>Make sure PM2 or the Node server is actually running: <code>pm2 status</code></li>
+                                 <li>Check server logs for errors: <code>pm2 logs mebot</code></li>
+                                 <li>If you see <strong>EACCES: permission denied</strong> on <code>uploads</code> or <code>.wwebjs_auth</code>, run: <code>sudo chown -R $USER:$USER /home/ubuntu/mebot</code> inside your project directory to fix permissions.</li>
+                                 <li>Ensure Service URL in Cloudflare is set to exactly <code>localhost:3000</code> (Not HTTPS).</li>
+                                 <li>Ensure the port is correct. By default, this app runs on port 3000.</li>
                              </ul>
                          </div>
                       </div>
