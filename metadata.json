@@ -1,0 +1,6 @@
+{
+  "name": "AutoProxy WhatsApp Bot",
+  "description": "A smart proxy agent that learns your persona from screenshots and replies on your behalf in WhatsApp.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
