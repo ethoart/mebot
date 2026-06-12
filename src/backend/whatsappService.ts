@@ -13,8 +13,9 @@ let lastError: string | null = null;
 // Track active chats where the user (human) recently replied to prevent bot from interfering
 const userActiveChats: Record<string, number> = {}; 
 const USER_ACTIVE_TIMEOUT = 5 * 60 * 1000; // 5 minutes pause after user replies manually
+const botSentMessagesBody = new Set<string>(); // Track bot's own recent messages
 
-let trainingPrompt: string = "You are a helpful assistant.";
+let trainingPrompt: string = "You are a helpful proxy assistant. You MUST respond in perfect, natural Sinhala language.";
 let botEnabled: boolean = false;
 
 // Initialize Gemini
@@ -67,11 +68,11 @@ export async function uploadTrainingScreenshots(files: Express.Multer.File[]) {
         - How short or long my messages usually are.
         
         Generate a detailed SYSTEM PROMPT that can be used to instruct an LLM to roleplay as me. 
-        The prompt should start with: "You are a proxy for me on WhatsApp. Respond exactly as I do. Here are your persona rules: ..."
+        The prompt should start with: "You are a proxy for me on WhatsApp. Respond exactly as I do. You MUST use perfect, natural Sinhala language where appropriate. Here are your persona rules: ..."
         `;
 
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
+            model: "gemini-3.5-flash",
             contents: [
                ...parts,
                { text: promptText }
@@ -255,6 +256,12 @@ async function handleMessage(msg: any) {
   try {
      // If the message is from me (human using WhatsApp normally), register activity and ignore.
      if (msg.fromMe) {
+        if (msg.body && botSentMessagesBody.has(msg.body)) {
+           // This message was sent by the bot! Ignore it and remove from tracking set.
+           botSentMessagesBody.delete(msg.body);
+           return;
+        }
+        
         userActiveChats[msg.to] = Date.now();
         console.log(`User active on chat ${msg.to}. Pausing bot for this chat.`);
         return;
@@ -289,18 +296,72 @@ async function handleMessage(msg: any) {
      Here is the recent chat history:
      ${genAIQuery}
      
-     Based on the conversation and your persona instructions, generate a single text response to reply back to 'Them'.
-     Do not include prefixes like "Me:". Just the raw message.
+     Based on the conversation and your persona instructions, decide how to reply back to 'Them'.
+     Humans often break their thoughts into multiple short messages instead of one long paragraph. 
+     CRITICAL: Your response MUST be a valid JSON array of strings (e.g. ["first message", "second message"]). 
+     Your response MUST be written in perfect, grammatically correct, and natural-sounding Sinhala language, unless the conversation context explicitly demands otherwise.
+     Do not include prefixes like "Me:". Just the raw messages inside the JSON array. Only output the JSON array, no markdown blocks.
      `;
 
      const ai = initGenAI();
      const response = await ai.models.generateContent({
-         model: "gemini-2.5-flash",
+         model: "gemini-3.5-flash",
          contents: [{ text: prompt }]
      });
 
      if (response.text) {
-        await chat.sendMessage(response.text.trim());
+        let replyTexts = [];
+        try {
+            // try to parse JSON
+            let cleanText = response.text.trim();
+            if (cleanText.startsWith("```json")) {
+                cleanText = cleanText.substring(7);
+            }
+            if (cleanText.startsWith("```")) {
+                cleanText = cleanText.substring(3);
+            }
+            if (cleanText.endsWith("```")) {
+                cleanText = cleanText.substring(0, cleanText.length - 3);
+            }
+            replyTexts = JSON.parse(cleanText.trim());
+            if (!Array.isArray(replyTexts)) {
+                replyTexts = [response.text.trim()]; // Fallback if not an array
+            }
+        } catch (e) {
+            // Fallback to single message
+            replyTexts = [response.text.trim()];
+        }
+
+        for (const replyText of replyTexts) {
+            // Humanized delay logic:
+            // reading delay (1 to 2.5s) + typing delay (35ms per character)
+            const readingDelay = Math.floor(Math.random() * 1000) + 500;
+            const typingDelay = replyText.length * 35; 
+            const totalDelay = Math.min(readingDelay + typingDelay, 10000); // Cap at 10 seconds per message
+            
+            // Try to show typing indicator
+            try {
+                if (chat.sendStateTyping) await chat.sendStateTyping();
+            } catch (e) {
+                // ignore if unsupported
+            }
+            
+            // Wait simulating human delay
+            await new Promise(resolve => setTimeout(resolve, totalDelay));
+            
+            // Try to clear typing indicator
+            try {
+                if (chat.clearState) await chat.clearState();
+            } catch (e) {
+                // ignore if unsupported
+            }
+
+            botSentMessagesBody.add(replyText);
+            // Backup cleanup if message_create fails to catch it
+            setTimeout(() => botSentMessagesBody.delete(replyText), 120000);
+
+            await chat.sendMessage(replyText);
+        }
      }
   } catch (err) {
       console.error("Error handling incoming message", err);
