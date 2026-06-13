@@ -296,22 +296,32 @@ async function handleMessage(msg: any) {
      pendingChatReplies[msg.from] = setTimeout(() => {
          delete pendingChatReplies[msg.from];
          processChatReply(chat, msg.from).catch(console.error);
-     }, 5000); // 5 second delay to gather quick consecutive messages
+     }, 12000); // 12 second delay to gather quick consecutive messages and save API limits
 
   } catch (err) {
       console.error("Error setting up chat reply", err);
   }
 }
 
+let lastApiCallTime = 0;
+
 async function processChatReply(chat: any, contactId: string) {
   try {
      console.log(`Bot handling batch messages for ${contactId}`);
      
      // Fetch recent messages for context
-     const messages = await chat.fetchMessages({ limit: 20 });
+     const messages = await chat.fetchMessages({ limit: 15 });
      const contact = await chat.getContact();
      const contactName = contact.name || contact.pushname || "Them";
      
+     // Enforce a hard limit of 15 Requests Per Minute (4 seconds minimum per request) for the free tier
+     const now = Date.now();
+     const timeSinceLastCall = now - lastApiCallTime;
+     if (timeSinceLastCall < 4500) { 
+         await new Promise(resolve => setTimeout(resolve, 4500 - timeSinceLastCall));
+     }
+     lastApiCallTime = Date.now();
+
      // Use Gemini to generate a response
      const genAIQuery = messages.map((m: any) => `[${m.fromMe ? 'Me' : contactName}]: ${m.body}`).join('\n');
      
