@@ -4,10 +4,11 @@ import type { Client as ClientType } from "whatsapp-web.js";
 import qrcode from "qrcode";
 import { GoogleGenAI } from "@google/genai";
 import fs from "fs";
+import path from "path";
 
 let client: ClientType | null = null;
 let qrCodeDataURL: string | null = null;
-let connectionState: "disconnected" | "connecting" | "connected" | "error" = "disconnected";
+let connectionState: "disconnected" | "connecting" | "disconnecting" | "connected" | "error" = "disconnected";
 let lastError: string | null = null;
 
 // Track active chats where the user (human) recently replied to prevent bot from interfering
@@ -213,6 +214,38 @@ export function getChats() {
    return { activeUsers: Object.keys(userActiveChats).length };
 }
 
+export async function logoutWhatsAppClient() {
+  if (client) {
+    try {
+      if (connectionState === "connected") {
+          await client.logout();
+      }
+    } catch(e) {
+      console.error("Error logging out", e);
+    }
+    try {
+      await client.destroy();
+    } catch(e) {
+      console.error("Error destroying client", e);
+    }
+  }
+
+  // Also clean up auth session explicitly
+  try {
+      const authPath = path.join(process.cwd(), '.wwebjs_auth');
+      if (fs.existsSync(authPath)) {
+          fs.rmSync(authPath, { recursive: true, force: true });
+      }
+  } catch(e) {
+      console.error("Error deleting session fold", e);
+  }
+
+  client = null;
+  connectionState = "disconnected";
+  qrCodeDataURL = null;
+  lastError = null;
+}
+
 export async function startWhatsAppClient() {
   if (connectionState === "connected" || connectionState === "connecting") {
     return;
@@ -267,6 +300,12 @@ export async function startWhatsAppClient() {
     console.error("Failed to start WhatsApp client", err);
     connectionState = "error";
     lastError = err.message || "Failed to launch headless browser";
+    
+    // Auto-recover session folder if locked browser error occurs
+    if (lastError.includes('browser is already running') || lastError.includes('userDataDir')) {
+       console.log("Detecting locked session, wiping auth to recover...");
+       await logoutWhatsAppClient();
+    }
   }
 }
 

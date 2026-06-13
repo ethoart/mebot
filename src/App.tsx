@@ -3,7 +3,7 @@ import { QrCode, Smartphone, Settings, UploadCloud, FileText, CheckCircle2, Aler
 import Scheduler from './Scheduler';
 
 type BotStatus = {
-  state: "disconnected" | "connecting" | "connected" | "error";
+  state: "disconnected" | "connecting" | "disconnecting" | "connected" | "error";
   qrUpdate: string | null;
   error: string | null;
   botEnabled: boolean;
@@ -67,6 +67,12 @@ export default function App() {
   const handleStartConnection = async () => {
     setStatus(prev => ({ ...prev, state: "connecting" }));
     await fetch("/api/whatsapp/start", { method: "POST" });
+  };
+
+  const handleLogoutConnection = async () => {
+    setStatus(prev => ({ ...prev, state: "disconnecting" }));
+    await fetch("/api/whatsapp/logout", { method: "POST" });
+    pollStatus();
   };
 
   const handleToggleBot = async () => {
@@ -267,17 +273,26 @@ export default function App() {
                              <p className="text-slate-500 text-sm">
                                 {status.state === 'disconnected' && "Click connect to generate a QR code."}
                                 {status.state === 'connecting' && "Starting browser, holding on..."}
+                                {status.state === 'disconnecting' && "Logging out the session..."}
                                 {status.state === 'connected' && "WhatsApp is linked and active. Engine ready."}
                                 {status.state === 'error' && (status.error || "Failed to connect to WhatsApp network.")}
                              </p>
                           </div>
                        </div>
 
-                       {status.state === 'disconnected' && !status.qrUpdate && (
-                          <button onClick={handleStartConnection} className="bg-slate-900 text-white px-6 py-2 rounded-lg font-medium hover:bg-slate-800 transition-colors">
-                             Generate QR Code
-                          </button>
-                       )}
+                       <div className="flex items-center flex-wrap gap-4 mb-2">
+                           {status.state === 'disconnected' && !status.qrUpdate && (
+                              <button onClick={handleStartConnection} className="bg-slate-900 text-white px-6 py-2 rounded-lg font-medium hover:bg-slate-800 transition-colors">
+                                 Generate QR Code
+                              </button>
+                           )}
+
+                           {(status.state === 'connected' || status.state === 'error' || status.qrUpdate || status.state === 'disconnected') && (
+                              <button onClick={handleLogoutConnection} className="bg-rose-50 text-rose-600 border border-rose-200 px-6 py-2 rounded-lg font-medium hover:bg-rose-100 transition-colors w-max">
+                                 Logout Account / Reset Session
+                              </button>
+                           )}
+                       </div>
 
                        {status.qrUpdate && status.state === 'disconnected' && (
                           <div className="bg-slate-50 rounded-xl p-8 flex flex-col items-center justify-center border border-slate-200">
@@ -328,7 +343,7 @@ export default function App() {
                                <label className="block text-sm font-medium text-slate-700 mb-2">Bot Name</label>
                                <input 
                                    type="text"
-                                   value={status.botName || 'Mebot'}
+                                   value={status.botName}
                                    onChange={(e) => updateConfigLocally('botName', e.target.value)}
                                    onBlur={(e) => handleSaveConfig('botName', e.target.value)}
                                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 mb-6"

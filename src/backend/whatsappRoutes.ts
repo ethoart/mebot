@@ -2,6 +2,7 @@ import { Router, Express } from "express";
 import multer from "multer";
 import {
   startWhatsAppClient,
+  logoutWhatsAppClient,
   getWhatsAppStatus,
   getChats,
   getChatsAll,
@@ -24,6 +25,15 @@ export function setupWhatsAppRoutes(app: Express) {
     try {
       await startWhatsAppClient();
       res.json({ success: true, message: "WhatsApp client initialization started" });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  router.post("/logout", async (req, res) => {
+    try {
+      await logoutWhatsAppClient();
+      res.json({ success: true, message: "WhatsApp client logged out" });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });
     }
