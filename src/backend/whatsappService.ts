@@ -17,6 +17,9 @@ const botSentMessagesBody = new Set<string>(); // Track bot's own recent message
 
 let trainingPrompt: string = "You are a helpful proxy assistant. You MUST respond in perfect, natural Sinhala language.";
 let botEnabled: boolean = false;
+let botMode: 'clone' | 'business' = 'clone';
+let botName: string = 'Mebot';
+let businessContext: string = '';
 
 // Initialize Gemini
 const initGenAI = () => {
@@ -28,15 +31,27 @@ export function getWhatsAppStatus() {
     state: connectionState,
     qrUpdate: qrCodeDataURL,
     error: lastError,
-    botEnabled
+    botEnabled,
+    botMode,
+    botName,
+    businessContext
   };
 }
 
-export function updateBotConfig(config: { enabled?: boolean }) {
+export function updateBotConfig(config: { enabled?: boolean, mode?: 'clone' | 'business', botName?: string, businessContext?: string }) {
     if (config.enabled !== undefined) {
         botEnabled = config.enabled;
     }
-    return { enabled: botEnabled };
+    if (config.mode !== undefined) {
+        botMode = config.mode;
+    }
+    if (config.botName !== undefined) {
+        botName = config.botName;
+    }
+    if (config.businessContext !== undefined) {
+        businessContext = config.businessContext;
+    }
+    return { enabled: botEnabled, mode: botMode, botName, businessContext };
 }
 
 export async function uploadTrainingScreenshots(files: Express.Multer.File[]) {
@@ -325,30 +340,64 @@ async function processChatReply(chat: any, contactId: string) {
      // Use Gemini to generate a response
      const genAIQuery = messages.map((m: any) => `[${m.fromMe ? 'Me' : contactName}]: ${m.body}`).join('\n');
      
-     const prompt = `
-     ${trainingPrompt}
-     
-     CRITICAL CONTEXT RULES:
-     Analyze the "recent chat history" below. Pay close attention to how I ("Me") speak to "${contactName}".
-     You must strictly match the relationship dynamic, tone, and formatting. 
-     - If we talk like close friends, use slang, informal words, and matching emojis.
-     - If it's a romantic partner, mirror the affectionate tone naturally.
-     - If it's professional, keep it polite and formal.
-     - Notice if I usually give short 1-word answers or longer paragraphs, and copy that style.
-     
-     Here is the recent chat history:
-     ${genAIQuery}
-     
-     Based on the conversation and your persona instructions, decide how to reply back to '${contactName}'.
-     Keep your response natural and concise. Most human replies are just 1 or 2 short messages. 
-     CRITICAL INSTRUCTIONS:
-     1. DO NOT repeat yourself. If you already asked a question, do not ask it again.
-     2. DO NOT answer exactly the same way if they send multiple fast messages. Read the full context before replying.
-     3. Send AT MOST 1 or 2 messages. Do not send long bursts.
-     4. Your response MUST be a valid JSON array of strings (e.g. ["first message", "second message"]). 
-     5. Your response MUST be written in perfect, grammatically correct, and natural-sounding Sinhala language, unless the conversation context explicitly demands otherwise.
-     Do not include prefixes like "Me:". Just the raw messages inside the JSON array. Only output the JSON array, no markdown blocks.
-     `;
+     let prompt = '';
+     if (botMode === 'business') {
+         prompt = `
+         You are an official customer management business virtual assistant named "${botName}". 
+         You are representing a business. Do NOT attempt to mimic human chat mistakes or slang. Keep an official, professional, helpful, and friendly tone.
+         Always identify yourself occasionally as the virtual assistant.
+         
+         Here is the company information, products, services, and pricing context:
+         ${businessContext}
+         
+         CRITICAL CONTEXT RULES:
+         - You must answer questions about products, services, and pricing based on the context provided.
+         - Address the customer "${contactName}" politely.
+         - Mention our packages and specify if any additions take an additional cost.
+         - If asked about market prices, discuss how it relates to the current Sri Lankan market prices.
+         - Send samples conceptually or confirm projects if the client asks.
+         - Make sure to inform that you are "${botName}", the virtual assistant.
+         
+         Here is the recent chat history:
+         ${genAIQuery}
+         
+         Based on the conversation, decide how to reply back to '${contactName}'.
+         Keep your response professional and concise.
+         
+         CRITICAL INSTRUCTIONS:
+         1. DO NOT repeat yourself. If you already asked a question, do not ask it again.
+         2. DO NOT answer exactly the same way if they send multiple fast messages. Read the full context before replying.
+         3. Send AT MOST 1 or 2 messages.
+         4. Your response MUST be a valid JSON array of strings (e.g. ["first message", "second message"]). 
+         5. Your response MUST be written in perfect, grammatically correct Sinhala language (or English if they speak English).
+         Do not include prefixes like "Me:". Just the raw messages inside the JSON array. Only output the JSON array, no markdown blocks.
+         `;
+     } else {
+         prompt = `
+         ${trainingPrompt}
+         
+         CRITICAL CONTEXT RULES:
+         Analyze the "recent chat history" below. Pay close attention to how I ("Me") speak to "${contactName}".
+         You must strictly match the relationship dynamic, tone, and formatting. 
+         - If we talk like close friends, use slang, informal words, and matching emojis.
+         - If it's a romantic partner, mirror the affectionate tone naturally.
+         - If it's professional, keep it polite and formal.
+         - Notice if I usually give short 1-word answers or longer paragraphs, and copy that style.
+         
+         Here is the recent chat history:
+         ${genAIQuery}
+         
+         Based on the conversation and your persona instructions, decide how to reply back to '${contactName}'.
+         Keep your response natural and concise. Most human replies are just 1 or 2 short messages. 
+         CRITICAL INSTRUCTIONS:
+         1. DO NOT repeat yourself. If you already asked a question, do not ask it again.
+         2. DO NOT answer exactly the same way if they send multiple fast messages. Read the full context before replying.
+         3. Send AT MOST 1 or 2 messages. Do not send long bursts.
+         4. Your response MUST be a valid JSON array of strings (e.g. ["first message", "second message"]). 
+         5. Your response MUST be written in perfect, grammatically correct, and natural-sounding Sinhala language, unless the conversation context explicitly demands otherwise.
+         Do not include prefixes like "Me:". Just the raw messages inside the JSON array. Only output the JSON array, no markdown blocks.
+         `;
+     }
 
      const ai = initGenAI();
      const response = await ai.models.generateContent({

@@ -7,6 +7,9 @@ type BotStatus = {
   qrUpdate: string | null;
   error: string | null;
   botEnabled: boolean;
+  botMode: 'clone' | 'business';
+  botName: string;
+  businessContext: string;
 };
 
 export default function App() {
@@ -16,6 +19,9 @@ export default function App() {
     qrUpdate: null,
     error: null,
     botEnabled: false,
+    botMode: 'clone',
+    botName: 'Mebot',
+    businessContext: ''
   });
   
   const [files, setFiles] = useState<File[]>([]);
@@ -58,6 +64,29 @@ export default function App() {
        method: "POST", 
        headers: { "Content-Type": "application/json" },
        body: JSON.stringify({ enabled: newState })
+    });
+    pollStatus();
+  };
+
+  const updateConfigLocally = (key: keyof BotStatus, value: any) => {
+    setStatus(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleSaveConfig = async (key: keyof BotStatus, value: any) => {
+    await fetch("/api/whatsapp/config", {
+       method: "POST", 
+       headers: { "Content-Type": "application/json" },
+       body: JSON.stringify({ mode: status.botMode, botName: status.botName, businessContext: status.businessContext, [key]: value })
+    });
+    pollStatus();
+  };
+
+  const updateMode = async (mode: 'clone' | 'business') => {
+    setStatus(prev => ({ ...prev, botMode: mode }));
+    await fetch("/api/whatsapp/config", {
+       method: "POST", 
+       headers: { "Content-Type": "application/json" },
+       body: JSON.stringify({ mode })
     });
     pollStatus();
   };
@@ -262,70 +291,121 @@ export default function App() {
 
              {activeTab === 'training' && (
                 <div className="max-w-4xl">
-                   <h2 className="text-2xl font-bold mb-6">Persona Training</h2>
-                   <p className="text-slate-600 mb-8 max-w-2xl">
-                      Upload screenshots of your usual WhatsApp chats. The system uses vision AI to analyze your tone, vocabulary, length, and languages (English, Sinhala, Singlish) to generate a perfect replica prompt.
-                   </p>
-
-                   <div className="grid grid-cols-2 gap-8">
-                       <div>
-                          <div className="bg-white border border-slate-200 border-dashed rounded-2xl p-8 text-center">
-                             <UploadCloud className="mx-auto text-slate-400 mb-4" size={40} />
-                             <h3 className="font-semibold mb-2">Upload Screenshots</h3>
-                             <p className="text-sm text-slate-500 mb-6">PNG, JPG up to 5MB.</p>
-                             <input 
-                                type="file" 
-                                multiple 
-                                accept="image/*"
-                                className="hidden" 
-                                id="file-upload"
-                                onChange={(e) => setFiles(Array.from(e.target.files || []))}
-                             />
-                             <label htmlFor="file-upload" className="bg-slate-100 text-slate-700 px-5 py-2 rounded-lg font-medium cursor-pointer hover:bg-slate-200 transition-colors">
-                                Select Files
-                             </label>
-
-                             {files.length > 0 && (
-                                <div className="mt-6 text-left">
-                                   <div className="text-sm font-medium mb-3">Selected ({files.length}):</div>
-                                   <div className="space-y-2">
-                                      {files.map((f, i) => (
-                                         <div key={i} className="flex items-center gap-2 text-sm text-slate-600 bg-slate-50 p-2 rounded-md">
-                                            <FileText size={14} />
-                                            <span className="truncate">{f.name}</span>
-                                         </div>
-                                      ))}
-                                   </div>
-                                   <button 
-                                      onClick={handleUpload}
-                                      disabled={isUploading}
-                                      className="w-full mt-4 bg-emerald-600 text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2"
-                                   >
-                                      {isUploading ? <><Loader2 size={16} className="animate-spin" /> Analyzing...</> : "Train Persona"}
-                                   </button>
-                                </div>
-                             )}
-                          </div>
-                          
-                          <div className="bg-amber-50 mt-6 p-4 rounded-xl border border-amber-100 text-sm text-amber-800">
-                             <strong>Cloudflare Zero Trust</strong>: When deploying to your AWS t3 server, you can use `cloudflared tunnel` to securely expose port 3000 to your domain without opening AWS security groups.
-                          </div>
-                       </div>
-
-                       <div>
-                          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 h-full shadow-lg flex flex-col">
-                             <div className="flex items-center justify-between mb-4">
-                                <h3 className="font-semibold text-slate-100">Generated System Prompt</h3>
-                             </div>
-                             <textarea 
-                               className="w-full flex-1 bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm font-mono text-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none"
-                               value={trainingPrompt}
-                               readOnly
-                               placeholder="Upload screenshots to generate a persona prompt..."
-                             />
-                          </div>
-                       </div>
+                   <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-2xl font-bold">Bot Engine Mode</h2>
+                      <div className="flex bg-slate-200 p-1 rounded-lg">
+                         <button 
+                             onClick={() => updateMode('clone')} 
+                             className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${status.botMode === 'clone' || !status.botMode ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                             Clone Persona
+                         </button>
+                         <button 
+                             onClick={() => updateMode('business')} 
+                             className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${status.botMode === 'business' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                             Business CRM Mode
+                         </button>
+                      </div>
                    </div>
+
+                   {status.botMode === 'business' ? (
+                       <div>
+                           <p className="text-slate-600 mb-8 max-w-2xl">
+                              Configure the bot to act as an official customer service representative. Provide your product details, pricing, and business context so it can accurately handle customer queries. In this mode, the bot will NOT mimic your personal tone.
+                           </p>
+
+                           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm mb-6">
+                               <label className="block text-sm font-medium text-slate-700 mb-2">Bot Name</label>
+                               <input 
+                                   type="text"
+                                   value={status.botName || 'Mebot'}
+                                   onChange={(e) => updateConfigLocally('botName', e.target.value)}
+                                   onBlur={(e) => handleSaveConfig('botName', e.target.value)}
+                                   className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 mb-6"
+                                   placeholder="e.g. Mebot Assistant"
+                               />
+                               
+                               <label className="block text-sm font-medium text-slate-700 mb-2">Business Context & Knowledge</label>
+                               <p className="text-xs text-slate-500 mb-3">Include products, services, prices, packaging details, and market context (e.g., current Sri Lankan market prices).</p>
+                               <textarea
+                                   className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 h-64 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                   value={status.businessContext || ''}
+                                   onChange={(e) => updateConfigLocally('businessContext', e.target.value)}
+                                   onBlur={(e) => handleSaveConfig('businessContext', e.target.value)}
+                                   placeholder="We offer web design (starting Rs.45,000) and SEO services..."
+                               />
+                               <div className="flex items-center gap-2 mt-4 text-xs text-slate-500 bg-emerald-50 p-3 rounded-lg border border-emerald-100 text-emerald-700">
+                                  <AlertCircle size={14} />
+                                  Changes are saved automatically when you click outside the text field. The bot will use this context directly.
+                               </div>
+                           </div>
+                       </div>
+                   ) : (
+                       <div>
+                           <p className="text-slate-600 mb-8 max-w-2xl">
+                              Upload screenshots of your usual WhatsApp chats. The system uses vision AI to analyze your tone, vocabulary, length, and languages to generate a perfect personal replica prompt.
+                           </p>
+
+                           <div className="grid grid-cols-2 gap-8">
+                               <div>
+                                  <div className="bg-white border border-slate-200 border-dashed rounded-2xl p-8 text-center">
+                                     <UploadCloud className="mx-auto text-slate-400 mb-4" size={40} />
+                                     <h3 className="font-semibold mb-2">Upload Screenshots</h3>
+                                     <p className="text-sm text-slate-500 mb-6">PNG, JPG up to 5MB.</p>
+                                     <input 
+                                        type="file" 
+                                        multiple 
+                                        accept="image/*"
+                                        className="hidden" 
+                                        id="file-upload"
+                                        onChange={(e) => setFiles(Array.from(e.target.files || []))}
+                                     />
+                                     <label htmlFor="file-upload" className="bg-slate-100 text-slate-700 px-5 py-2 rounded-lg font-medium cursor-pointer hover:bg-slate-200 transition-colors">
+                                        Select Files
+                                     </label>
+
+                                     {files.length > 0 && (
+                                        <div className="mt-6 text-left">
+                                           <div className="text-sm font-medium mb-3">Selected ({files.length}):</div>
+                                           <div className="space-y-2">
+                                              {files.map((f, i) => (
+                                                 <div key={i} className="flex items-center gap-2 text-sm text-slate-600 bg-slate-50 p-2 rounded-md">
+                                                    <FileText size={14} />
+                                                    <span className="truncate">{f.name}</span>
+                                                 </div>
+                                              ))}
+                                           </div>
+                                           <button 
+                                              onClick={handleUpload}
+                                              disabled={isUploading}
+                                              className="w-full mt-4 bg-emerald-600 text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2"
+                                           >
+                                              {isUploading ? <><Loader2 size={16} className="animate-spin" /> Analyzing...</> : "Train Persona"}
+                                           </button>
+                                        </div>
+                                     )}
+                                  </div>
+                                  
+                                  <div className="bg-amber-50 mt-6 p-4 rounded-xl border border-amber-100 text-sm text-amber-800">
+                                     <strong>Cloudflare Zero Trust</strong>: When deploying to your AWS t3 server, you can use `cloudflared tunnel` to securely expose port 3000 to your domain without opening AWS security groups.
+                                  </div>
+                               </div>
+
+                               <div>
+                                  <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 h-full shadow-lg flex flex-col">
+                                     <div className="flex items-center justify-between mb-4">
+                                        <h3 className="font-semibold text-slate-100">Generated System Prompt</h3>
+                                     </div>
+                                     <textarea 
+                                       className="w-full flex-1 bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm font-mono text-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none"
+                                       value={trainingPrompt}
+                                       readOnly
+                                       placeholder="Upload screenshots to generate a persona prompt..."
+                                     />
+                                  </div>
+                               </div>
+                           </div>
+                       </div>
+                   )}
                 </div>
              )}
 
