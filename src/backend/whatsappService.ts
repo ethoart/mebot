@@ -20,7 +20,7 @@ let trainingPrompt: string = "You are a helpful proxy assistant. You MUST respon
 let botEnabled: boolean = false;
 let botMode: 'clone' | 'business' = 'clone';
 let botName: string = 'Mebot';
-let businessContext: string = '';
+let businessContext: string = 'Our main services include web design and software development. A single page website costs starting from Rs. 25,000+. For other projects, we would need to discuss requirements.';
 
 // Initialize Gemini
 const initGenAI = () => {

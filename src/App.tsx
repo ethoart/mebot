@@ -21,7 +21,7 @@ export default function App() {
     botEnabled: false,
     botMode: 'clone',
     botName: 'Mebot',
-    businessContext: ''
+    businessContext: 'Our main services include web design and software development. A single page website costs starting from Rs. 25,000+. For other projects, we would need to discuss requirements.'
   });
   
   const [files, setFiles] = useState<File[]>([]);
@@ -351,13 +351,13 @@ export default function App() {
                                />
                                
                                <label className="block text-sm font-medium text-slate-700 mb-2">Business Context & Knowledge</label>
-                               <p className="text-xs text-slate-500 mb-3">Include products, services, prices, packaging details, and market context (e.g., current Sri Lankan market prices).</p>
+                               <p className="text-xs text-slate-500 mb-3">Include products, services, prices, packaging details, and market context.</p>
                                <textarea
                                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 h-64 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                                    value={status.businessContext || ''}
                                    onChange={(e) => updateConfigLocally('businessContext', e.target.value)}
                                    onBlur={(e) => handleSaveConfig('businessContext', e.target.value)}
-                                   placeholder="We offer web design (starting Rs.45,000) and SEO services..."
+                                   placeholder="We offer web design. A single page website costs starting from Rs. 25,000+..."
                                />
                                <div className="flex items-center gap-2 mt-4 text-xs text-slate-500 bg-emerald-50 p-3 rounded-lg border border-emerald-100 text-emerald-700">
                                   <AlertCircle size={14} />
