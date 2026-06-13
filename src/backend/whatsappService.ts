@@ -350,7 +350,7 @@ async function handleMessage(msg: any) {
      pendingChatReplies[msg.from] = setTimeout(() => {
          delete pendingChatReplies[msg.from];
          processChatReply(chat, msg.from).catch(console.error);
-     }, 12000); // 12 second delay to gather quick consecutive messages and save API limits
+     }, 3000); // 3 second delay to gather quick consecutive messages
 
   } catch (err) {
       console.error("Error setting up chat reply", err);
@@ -450,30 +450,22 @@ async function processChatReply(chat: any, contactId: string) {
         try {
             // try to parse JSON
             let cleanText = response.text.trim();
-            if (cleanText.startsWith("```json")) {
-                cleanText = cleanText.substring(7);
-            }
-            if (cleanText.startsWith("```")) {
-                cleanText = cleanText.substring(3);
-            }
-            if (cleanText.endsWith("```")) {
-                cleanText = cleanText.substring(0, cleanText.length - 3);
-            }
-            replyTexts = JSON.parse(cleanText.trim());
+            cleanText = cleanText.replace(/^```json/i, "").replace(/^```/i, "").replace(/```$/i, "").trim();
+            replyTexts = JSON.parse(cleanText);
             if (!Array.isArray(replyTexts)) {
                 replyTexts = [response.text.trim()]; // Fallback if not an array
             }
         } catch (e) {
-            // Fallback to single message
-            replyTexts = [response.text.trim()];
+            console.error("Failed to parse JSON reply from Gemini", e);
+            replyTexts = [response.text.replace(/```json/g, "").replace(/```/g, "").trim()];
         }
 
         for (const replyText of replyTexts) {
             // Humanized delay logic:
-            // reading delay (1.5s to 3s base) + typing delay (50ms per character)
-            const readingDelay = Math.floor(Math.random() * 1500) + 1500;
-            const typingDelay = replyText.length * 50; 
-            const totalDelay = Math.min(readingDelay + typingDelay, 10000); // Cap at 10 seconds per message
+            // reading delay (1s to 2s base) + typing delay (30ms per character)
+            const readingDelay = Math.floor(Math.random() * 1000) + 1000;
+            const typingDelay = replyText.length * 30; 
+            const totalDelay = Math.min(readingDelay + typingDelay, 7000); // Cap at 7 seconds per message
             
             // Wait for reading delay before starting to type
             await new Promise(resolve => setTimeout(resolve, readingDelay));
@@ -486,7 +478,7 @@ async function processChatReply(chat: any, contactId: string) {
             }
             
             // Wait simulating human typing
-            await new Promise(resolve => setTimeout(resolve, typingDelay));
+            await new Promise(resolve => setTimeout(resolve, Math.min(typingDelay, 4000)));
             
             // Try to clear typing indicator
             try {
