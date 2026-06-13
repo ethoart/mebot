@@ -28,12 +28,23 @@ export default function App() {
   const [isUploading, setIsUploading] = useState(false);
   const [trainingPrompt, setTrainingPrompt] = useState("");
 
-  const pollStatus = async () => {
+  const pollStatus = async (initial = false) => {
     try {
       const res = await fetch("/api/whatsapp/status");
       const data = await res.json();
       if (data && data.state) {
-         setStatus(data);
+         setStatus(prev => {
+            if (initial) {
+                return { ...prev, ...data };
+            }
+            return {
+                ...prev,
+                state: data.state,
+                qrUpdate: data.qrUpdate,
+                error: data.error,
+                botEnabled: data.botEnabled
+            };
+         });
       }
     } catch (e) {
       console.error(e);
@@ -41,8 +52,8 @@ export default function App() {
   };
 
   useEffect(() => {
-    pollStatus();
-    const interval = setInterval(pollStatus, 3000);
+    pollStatus(true);
+    const interval = setInterval(() => pollStatus(false), 3000);
     return () => clearInterval(interval);
   }, []);
 
@@ -76,9 +87,9 @@ export default function App() {
     await fetch("/api/whatsapp/config", {
        method: "POST", 
        headers: { "Content-Type": "application/json" },
-       body: JSON.stringify({ mode: status.botMode, botName: status.botName, businessContext: status.businessContext, [key]: value })
+       body: JSON.stringify({ [key]: value })
     });
-    pollStatus();
+    // Don't poll status here because it's a partial update and we rely on local state
   };
 
   const updateMode = async (mode: 'clone' | 'business') => {
