@@ -330,12 +330,13 @@ async function processChatReply(chat: any, contactId: string) {
      ${genAIQuery}
      
      Based on the conversation and your persona instructions, decide how to reply back to '${contactName}'.
-     Humans often break their thoughts into multiple short messages instead of one long paragraph. 
+     Keep your response natural and concise. Most human replies are just 1 or 2 short messages. 
      CRITICAL INSTRUCTIONS:
      1. DO NOT repeat yourself. If you already asked a question, do not ask it again.
      2. DO NOT answer exactly the same way if they send multiple fast messages. Read the full context before replying.
-     3. Your response MUST be a valid JSON array of strings (e.g. ["first message", "second message"]). 
-     4. Your response MUST be written in perfect, grammatically correct, and natural-sounding Sinhala language, unless the conversation context explicitly demands otherwise.
+     3. Send AT MOST 1 or 2 messages. Do not send long bursts.
+     4. Your response MUST be a valid JSON array of strings (e.g. ["first message", "second message"]). 
+     5. Your response MUST be written in perfect, grammatically correct, and natural-sounding Sinhala language, unless the conversation context explicitly demands otherwise.
      Do not include prefixes like "Me:". Just the raw messages inside the JSON array. Only output the JSON array, no markdown blocks.
      `;
 
